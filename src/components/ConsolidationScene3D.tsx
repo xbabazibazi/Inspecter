@@ -282,6 +282,14 @@ function ItemBlockMesh({
   const sizeH = Math.max(0.01, occH * SCALE);
   const sizeW = Math.max(0.01, occW * SCALE);
 
+  // Bitişik (aralarında boşluk bırakılmadan dizilen) bloklar, saydam malzeme yüzünden
+  // açılı kamerada iç içeymiş gibi görünebiliyor. Yalnızca çizimde, gerçek konum/veriyi
+  // etkilemeden her yüzden ince bir pay bırakarak komşuluğu görsel olarak netleştiriyoruz.
+  const GAP = 0.02; // ~2cm, dünya birimi
+  const renderL = Math.max(sizeL * 0.7, sizeL - GAP);
+  const renderH = Math.max(sizeH * 0.7, sizeH - GAP);
+  const renderW = Math.max(sizeW * 0.7, sizeW - GAP);
+
   const worldX = (xMm + block.length / 2 - equipment.L / 2) * SCALE;
   const worldY = yMm * SCALE + sizeH / 2;
   const worldZ = (zMm + occW / 2 - equipment.W / 2) * SCALE;
@@ -359,8 +367,8 @@ function ItemBlockMesh({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
       >
-        <boxGeometry args={[sizeL, sizeH, sizeW]} />
-        <meshStandardMaterial color={color} transparent opacity={selected ? 0.95 : 0.75} />
+        <boxGeometry args={[renderL, renderH, renderW]} />
+        <meshStandardMaterial color={color} transparent opacity={selected ? 0.97 : 0.9} />
         <Edges color={overridden ? '#c0392b' : '#1a1f1d'} />
       </mesh>
 
