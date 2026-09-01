@@ -1,0 +1,10 @@
+{
+  // Sunucu Worker'ı yok — bu proje tamamen statik (next.config.ts: output:'export').
+  // Cloudflare bu dosyayı görünce "deploy command" (npx wrangler deploy) `out/`
+  // klasörünü düz statik varlık olarak yükler, OpenNext/SSR adaptörüne gerek kalmaz.
+  "name": "inspecter",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./out"
+  }
+}
