@@ -1,5 +1,5 @@
 {
-  "name": "manifest-tools",
+  "name": "inspecter",
   "version": "0.1.0",
   "private": true,
   "description": "Manifest Araç Kutusu — konteyner yükleme hesaplayıcı, ISO 6346 doğrulama, konteyner özellikleri, navlun ağırlığı",

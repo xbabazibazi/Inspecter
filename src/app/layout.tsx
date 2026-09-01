@@ -4,8 +4,8 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Manifest Araç Kutusu',
-    template: '%s · Manifest',
+    default: 'Inspecter',
+    template: '%s · Inspecter',
   },
   description:
     'Konteyner yükleme hesaplayıcı, ISO 6346 numara doğrulama, konteyner özellikleri ve navlun ağırlığı. Hesap yok, kayıt yok — hepsi tarayıcında çalışır.',
@@ -14,10 +14,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#EFF1EE' },
-    { media: '(prefers-color-scheme: dark)', color: '#0F1413' },
-  ],
+  // Tek, kilitli açık tema — koyu mod kasıtlı olarak yok.
+  themeColor: '#EFF1EE',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -35,8 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="app">
           <header className="top">
             <div className="brand">
-              <b>Manifest</b>
-              <span>Araç Kutusu</span>
+              <b>Inspecter</b>
               <span className="rev mono">v0.1</span>
             </div>
             <p className="tagline">
@@ -50,7 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main className="panel">{children}</main>
 
           <footer>
-            Manifest Araç Kutusu v0.1 · Tüm hesaplar tarayıcında çalışır, hiçbir veri gönderilmez.
+            Inspecter v0.1 · Tüm hesaplar tarayıcında çalışır, hiçbir veri gönderilmez.
             <br />
             Konteyner ölçüleri ve payload değerleri nominaldir; taşıyıcı spesifikasyonuyla
             doğrulanmalıdır.

@@ -1,26 +1,13 @@
+/* Inspecter — tek, kilitli açık tema (OKLCH). Koyu mod kasıtlı olarak yok. */
 :root{
-  --bg:#EFF1EE; --surface:#FAFBF9; --surface-2:#E6E9E5; --ink:#131A18;
-  --ink-2:#5A6360; --ink-3:#828B87; --rule:#D2D8D1; --rule-strong:#B6BEB5;
-  --accent:#0B5D51; --accent-soft:#DCEAE6; --accent-2:#3E9184;
-  --stamp:#9E3B2E; --stamp-soft:#F2E1DD; --warn:#8F6416; --warn-soft:#F2E7CE;
-  --shadow:0 1px 2px rgba(19,26,24,.06), 0 8px 24px -14px rgba(19,26,24,.2);
-  --focus:#0B5D51;
-}
-@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
-  --bg:#0F1413; --surface:#161B1A; --surface-2:#1E2523; --ink:#E7EBE8;
-  --ink-2:#98A29E; --ink-3:#79837F; --rule:#293130; --rule-strong:#3A4442;
-  --accent:#54C1AA; --accent-soft:#16302C; --accent-2:#7FD5C3;
-  --stamp:#E0806D; --stamp-soft:#33201C; --warn:#D2A44E; --warn-soft:#332912;
-  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -14px rgba(0,0,0,.7);
-  --focus:#54C1AA;
-}}
-:root[data-theme="dark"]{
-  --bg:#0F1413; --surface:#161B1A; --surface-2:#1E2523; --ink:#E7EBE8;
-  --ink-2:#98A29E; --ink-3:#79837F; --rule:#293130; --rule-strong:#3A4442;
-  --accent:#54C1AA; --accent-soft:#16302C; --accent-2:#7FD5C3;
-  --stamp:#E0806D; --stamp-soft:#33201C; --warn:#D2A44E; --warn-soft:#332912;
-  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -14px rgba(0,0,0,.7);
-  --focus:#54C1AA;
+  --bg:oklch(95.6% 0.005 135); --surface:oklch(98.7% 0.003 129); --surface-2:oklch(93.1% 0.006 138);
+  --ink:oklch(21% 0.011 176); --ink-2:oklch(49.1% 0.012 174); --ink-3:oklch(62.8% 0.012 168);
+  --rule:oklch(87.6% 0.011 141); --rule-strong:oklch(79.3% 0.015 142);
+  --accent:oklch(43% 0.075 180); --accent-soft:oklch(92.5% 0.016 177); --accent-2:oklch(60.2% 0.083 182);
+  --stamp:oklch(48.9% 0.135 30); --stamp-soft:oklch(92.2% 0.02 33);
+  --warn:oklch(53.5% 0.104 77); --warn-soft:oklch(93% 0.035 87);
+  --shadow:0 1px 2px oklch(21% 0.011 176 / 6%), 0 8px 24px -14px oklch(21% 0.011 176 / 20%);
+  --focus:oklch(43% 0.075 180);
 }
 
 *{box-sizing:border-box}

@@ -1,4 +1,4 @@
-# Manifest Araç Kutusu
+# Inspecter
 
 İhracatçılar için dört ücretsiz konteyner aracı. Hesap yok, sunucu yok, veri gönderimi yok —
 tüm hesaplar tarayıcıda çalışır ve sayfaların hepsi statik olarak üretilir.
