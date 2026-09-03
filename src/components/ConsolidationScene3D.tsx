@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { ThreeEvent } from '@react-three/fiber';
 import { Canvas } from '@react-three/fiber';
 import { Billboard, Edges, Grid, OrbitControls, Text } from '@react-three/drei';
-import { Plane, Vector3 } from 'three';
+import { Plane, Vector3, type WebGLRenderer } from 'three';
 import { boxesOverlap, boxFromBlock, resolvePlacement, type Box3, type PlacedItemBlock } from '@/lib/consolidate';
 import type { EquipmentSpec } from '@/lib/equipment';
 
@@ -34,19 +34,23 @@ export interface PlacedEntry {
   overridden: boolean;
 }
 
-export default function ConsolidationScene3D({
-  equipment,
-  placed,
-  colorFor,
-  onMoveBlock,
-  onResetBlock,
-}: {
+export interface ConsolidationScene3DHandle {
+  /** Sahnenin o anki karesini PNG data URL olarak döner (yazdırma/rapor için). */
+  captureImage: () => string | null;
+}
+
+const ConsolidationScene3D = forwardRef<ConsolidationScene3DHandle, {
   equipment: EquipmentSpec;
   placed: PlacedEntry[];
   colorFor: (id: string) => string;
   onMoveBlock: (key: string, x: number, y: number, z: number) => void;
   onResetBlock: (key: string) => void;
-}) {
+}>(function ConsolidationScene3D({ equipment, placed, colorFor, onMoveBlock, onResetBlock }, ref) {
+  const glRef = useRef<WebGLRenderer | null>(null);
+  useImperativeHandle(ref, () => ({
+    captureImage: () => glRef.current?.domElement.toDataURL('image/png') ?? null,
+  }), []);
+
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const selected = placed.find((p) => p.key === selectedKey) ?? null;
 
@@ -117,6 +121,8 @@ export default function ConsolidationScene3D({
     <>
       <Canvas
         dpr={[1, 2]}
+        gl={{ preserveDrawingBuffer: true }}
+        onCreated={(state) => { glRef.current = state.gl; }}
         camera={{ position: [Lm * 0.4, diag * 0.5, Wm * 1.6], fov: 45, near: 0.05, far: diag * 30 }}
         onPointerMissed={() => setSelectedKey(null)}
         style={{ cursor: moveActive ? 'move' : 'auto' }}
@@ -191,7 +197,9 @@ export default function ConsolidationScene3D({
       ) : null}
     </>
   );
-}
+});
+
+export default ConsolidationScene3D;
 
 function mmToCm(mm: number): string {
   return (mm / 10).toFixed(0);
