@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { flushSync } from 'react-dom';
 import { EQUIPMENT, equipmentById, type EquipmentSpec } from '@/lib/equipment';
 import { placeItems, type LineItem } from '@/lib/consolidate';
 import { csvTemplate, parseCsv, parseImportRows } from '@/lib/importItems';
 import { palletById, PALLETS } from '@/lib/pallets';
+import { buildConsolidationPdf, shareOrDownloadPdf } from './pdfReport';
 import ConsolidationScene3D, { type ConsolidationScene3DHandle, type PlacedEntry } from './ConsolidationScene3D';
 import { Bar, Chip, Field, KV, fmt, pct, toNum, useStored } from './ui';
 
@@ -219,19 +219,32 @@ export default function ConsolidationPlanner() {
   const containers = EQUIPMENT.filter((e) => e.kind === 'container');
 
   const sceneRef = useRef<ConsolidationScene3DHandle>(null);
-  const [printSnapshot, setPrintSnapshot] = useState<string | null>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfNote, setPdfNote] = useState<string | null>(null);
 
-  const handlePrint = () => {
-    const img = sceneRef.current?.captureImage() ?? null;
-    // Yazdırma diyaloğu açılmadan önce görüntünün DOM'a işlenmiş olması gerekir —
-    // normal setState + window.print() arasında React commit'i garanti değildir.
-    flushSync(() => setPrintSnapshot(img));
-    window.print();
+  const handleExportPdf = async () => {
+    setPdfBusy(true);
+    setPdfNote(null);
+    try {
+      const snapshot = sceneRef.current?.captureImage() ?? null;
+      const reportItems = items.map((it) => ({
+        label: it.label.trim() || 'Kalem',
+        l: toNum(it.l), w: toNum(it.w), h: toNum(it.h), kg: toNum(it.kg, 0),
+        qty: Math.max(0, Math.floor(toNum(it.qty, 0))),
+        cylinder: it.cylinder === '1',
+      }));
+      const blob = buildConsolidationPdf(equipment, result, reportItems, snapshot);
+      const outcome = await shareOrDownloadPdf(blob, `inspecter-${equipment.id}.pdf`);
+      setPdfNote(outcome === 'shared' ? 'Paylaşıldı.' : 'PDF indirildi.');
+    } catch {
+      setPdfNote('PDF oluşturulamadı — tekrar dene.');
+    } finally {
+      setPdfBusy(false);
+    }
   };
 
   return (
     <>
-      <div className="noprint">
       <h2>Konsolidasyon planlayıcı</h2>
       <p className="sub">
         Farklı ölçü ve ağırlıktaki kalemleri tek ekipmana yerleştir; 3D&apos;de döndürüp incele,
@@ -360,9 +373,18 @@ export default function ConsolidationPlanner() {
           ) : null}
 
           {result.blocks.length > 0 ? (
-            <button type="button" className="rowbtn" style={{ marginTop: 12 }} onClick={handlePrint}>
-              Rapor (PDF / Yazdır)
-            </button>
+            <>
+              <button
+                type="button"
+                className="rowbtn"
+                style={{ marginTop: 12 }}
+                onClick={handleExportPdf}
+                disabled={pdfBusy}
+              >
+                {pdfBusy ? 'PDF hazırlanıyor…' : 'PDF oluştur / Paylaş'}
+              </button>
+              {pdfNote ? <span className="hint" style={{ marginLeft: 10 }}>{pdfNote}</span> : null}
+            </>
           ) : null}
 
           <div className="legend">
@@ -415,95 +437,6 @@ export default function ConsolidationPlanner() {
         (genişlik şeridi, sütun tepesi, eksik son sıra). Ambalaj şişmesi ve bağlama gibi
         hesaplanamayan kayıplar için <b>fire payı %</b> girerek kapasiteyi ihtiyatlı kısabilirsin.
       </p>
-      </div>
-
-      <div className="printonly">
-        <div className="phead">
-          <span><b>Inspecter</b> · Konsolidasyon planı</span>
-          <span>{new Date().toLocaleDateString('tr-TR')}</span>
-        </div>
-
-        <h2>{equipment.name}</h2>
-        <div className="pstatus">
-          {result.boundBy === 'none'
-            ? 'Sığıyor'
-            : result.boundBy === 'length' ? 'Uzunluk aşıldı' : 'Ağırlık aşıldı'}
-        </div>
-
-        <table className="ptable">
-          <tbody>
-            <tr>
-              <td>Uzunluk kullanımı</td>
-              <td>
-                {fmt(result.totalLengthUsed / 10)} / {fmt((equipment.L * (1 - result.allowance)) / 10)} cm ·{' '}
-                {pct(result.lengthUtil)}
-              </td>
-            </tr>
-            <tr>
-              <td>Ağırlık kullanımı</td>
-              <td>
-                {fmt(result.totalWeight)} / {fmt(equipment.payload * (1 - result.allowance))} kg ·{' '}
-                {pct(result.weightUtil)}
-              </td>
-            </tr>
-            {result.blocks.length > 0 ? (
-              <>
-                <tr><td>Net yük hacmi</td><td>{fmt(result.cargoVolume / 1e9, 1)} m³</td></tr>
-                <tr>
-                  <td>Fire (boşluk)</td>
-                  <td>{fmt(result.voidVolume / 1e9, 1)} m³ · dolu bölümde %{Math.round(result.voidRatio * 100)}</td>
-                </tr>
-              </>
-            ) : null}
-            {result.allowance > 0 ? (
-              <tr><td>Fire payı</td><td>%{Math.round(result.allowance * 100)}</td></tr>
-            ) : null}
-          </tbody>
-        </table>
-
-        <h3>Kalemler</h3>
-        <table className="ptable ptable-items">
-          <thead>
-            <tr>
-              <th>#</th><th>Etiket</th><th>Ölçü (cm)</th><th>Ağırlık (kg/adet)</th><th>Adet</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.map((it, i) => (
-              <tr key={it.id}>
-                <td>{i + 1}</td>
-                <td>{it.label.trim() || 'Kalem'}</td>
-                <td>{fmt(toNum(it.l))}×{fmt(toNum(it.w))}×{fmt(toNum(it.h))}</td>
-                <td>{fmt(toNum(it.kg), 1)}</td>
-                <td>{Math.max(0, Math.floor(toNum(it.qty, 0)))}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {result.unfitItems.length > 0 ? (
-          <p><b>Sığmayan kalemler:</b> {result.unfitItems.map((i) => i.label).join(', ')}</p>
-        ) : null}
-        {result.boundBy !== 'none' ? (
-          <p>
-            <b>Kapasite aşıldı.</b>{' '}
-            {result.boundBy === 'length'
-              ? `Gereken uzunluk ${fmt(result.lengthOverflow / 10)} cm fazla.`
-              : `Toplam ağırlık ${fmt(result.weightOverflow)} kg fazla.`}
-          </p>
-        ) : null}
-
-        {printSnapshot ? (
-          <img src={printSnapshot} alt="3D yerleşim görünümü" className="psnapshot" />
-        ) : (
-          <p className="pnote">3D görünüm alınamadı — sahneyi bir kez döndürüp tekrar dene.</p>
-        )}
-
-        <p className="pfoot">
-          Bu bir yerleşim tahminidir; ambalaj şişmesi ve bağlama payı için fire payı girilebilir.
-          inspecter.mstfadur891.workers.dev
-        </p>
-      </div>
     </>
   );
 }

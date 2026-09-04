@@ -284,33 +284,3 @@ nav.tabs a[data-active="true"]{color:var(--accent);border-bottom-color:var(--acc
   background:color-mix(in srgb,var(--bg) 90%,transparent);
 }
 
-/* ---- yazdırılabilir rapor ---- */
-.printonly{display:none}
-@media print{
-  .noprint{display:none !important}
-  .printonly{display:block !important}
-  .app{max-width:none;padding:0;margin:0}
-  body{background:#fff;color:#000;font-size:12px}
-  .phead{
-    display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #000;
-    padding-bottom:8px;margin-bottom:14px;font-family:"IBM Plex Mono",monospace;font-size:11px;
-    text-transform:uppercase;letter-spacing:.08em;
-  }
-  .printonly h2{font-size:18px;margin:0 0 4px}
-  .pstatus{
-    font-family:"IBM Plex Mono",monospace;font-size:11px;text-transform:uppercase;
-    letter-spacing:.08em;margin-bottom:14px;color:#444;
-  }
-  .printonly h3{font-size:11px;text-transform:uppercase;letter-spacing:.1em;margin:18px 0 6px;color:#444}
-  .ptable{width:100%;border-collapse:collapse;margin-bottom:18px;font-size:12px}
-  .ptable td,.ptable th{border-bottom:1px solid #ccc;padding:5px 8px;text-align:left}
-  .ptable-items th{
-    font-family:"IBM Plex Mono",monospace;font-size:10px;text-transform:uppercase;
-    letter-spacing:.06em;color:#555;
-  }
-  .psnapshot{width:100%;max-width:680px;border:1px solid #ccc;display:block;margin:10px 0}
-  .pnote{font-size:11px;color:#777;font-style:italic}
-  .pfoot{margin-top:20px;padding-top:10px;border-top:1px solid #ccc;font-family:"IBM Plex Mono",monospace;font-size:9.5px;color:#777}
-  @page{margin:14mm}
-}
-
