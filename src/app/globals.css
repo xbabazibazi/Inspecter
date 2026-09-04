@@ -219,6 +219,13 @@ nav.tabs a[data-active="true"]{color:var(--accent);border-bottom-color:var(--acc
 .itemrow .ihd>div{flex:1;min-width:0}
 .itemrow .ifields{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:10px}
 @media(min-width:640px){.itemrow .ifields{grid-template-columns:repeat(6,1fr)}}
+.iopts{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.palletselect{
+  appearance:none;background:var(--surface-2);border:1px solid var(--rule);border-radius:20px;
+  font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-2);padding:8px 14px;
+  min-height:40px;cursor:pointer;
+}
+.palletselect:hover{border-color:var(--accent);color:var(--accent)}
 .swatch{width:14px;height:14px;border-radius:3px;flex:none;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18);margin-bottom:11px}
 .rowbtn{
   appearance:none;background:var(--surface-2);border:1px solid var(--rule);border-radius:3px;

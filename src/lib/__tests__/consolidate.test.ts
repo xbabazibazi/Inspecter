@@ -154,6 +154,14 @@ describe('placeItems — fire (boşluk) hesabı', () => {
     ]);
     expect(r.cargoVolume).toBe(16 * 500 * 500 * 500);
   });
+
+  it('silindir kalemde gerçek hacim kutu zarfının π/4\'ü kadardır', () => {
+    const r = placeItems(EQ, [item({ qty: 16, shape: 'cylinder' })]);
+    expect(r.cargoVolume).toBeCloseTo(16 * 500 * 500 * 500 * (Math.PI / 4), 5);
+    // Yerleşim zarfı (fire hesabının diğer ucu) hâlâ tam kutu gibi hesaplanır — konservatif.
+    expect(r.usedEnvelopeVolume).toBe(500 * 2000 * 2000);
+    expect(r.voidVolume).toBeGreaterThan(0);
+  });
 });
 
 describe('placeItems — fire payı (allowance)', () => {

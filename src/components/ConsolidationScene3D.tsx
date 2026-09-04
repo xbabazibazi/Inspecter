@@ -375,7 +375,11 @@ function ItemBlockMesh({
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
       >
-        <boxGeometry args={[renderL, renderH, renderW]} />
+        {block.item.shape === 'cylinder' ? (
+          <cylinderGeometry args={[Math.min(renderL, renderW) / 2, Math.min(renderL, renderW) / 2, renderH, 24]} />
+        ) : (
+          <boxGeometry args={[renderL, renderH, renderW]} />
+        )}
         <meshStandardMaterial color={color} transparent opacity={selected ? 0.97 : 0.9} />
         <Edges color={overridden ? '#c0392b' : '#1a1f1d'} />
       </mesh>

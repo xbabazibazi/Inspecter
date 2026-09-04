@@ -29,6 +29,12 @@ export interface LineItem {
   qty: number;
   maxStack?: number;
   thisSideUp?: boolean;
+  /**
+   * 'cylinder': dik varil/rulo — yerleşim/çarpışma yine l×w×h dikdörtgen zarfını kullanır
+   * (kasıtlı, konservatif — dairesel paketleme uygulanmaz), yalnızca gerçek hacim (fire
+   * hesabı) ve 3B görsel şekli farklılaşır. Varsayılan 'box'.
+   */
+  shape?: 'box' | 'cylinder';
 }
 
 export interface PlacedItemBlock {
@@ -303,10 +309,13 @@ export function placeItems(
   // hacmi arasındaki fark. Genişlik şeridi, sütun tepesi ve eksik son sıra boşluklarının
   // tamamını kapsar — blok verisinden kesin çıkar, varsayım içermez.
   const unfitSet = new Set(unfitItems);
-  const cargoVolume = items.reduce(
-    (s, it) => (unfitSet.has(it) ? s : s + Math.max(0, it.qty) * it.l * it.w * it.h),
-    0,
-  );
+  const cargoVolume = items.reduce((s, it) => {
+    if (unfitSet.has(it)) return s;
+    // Silindir gerçek hacmi kutu zarfının π/4'ü kadardır (l=w=çap varsayımıyla) —
+    // fire (boşluk) doğru raporlansın diye; yerleşim zarfı yine l×w×h olarak kalır.
+    const shapeFactor = it.shape === 'cylinder' ? Math.PI / 4 : 1;
+    return s + Math.max(0, it.qty) * it.l * it.w * it.h * shapeFactor;
+  }, 0);
   const usedEnvelopeVolume = totalLengthUsed * equipment.W * equipment.H;
   const voidVolume = Math.max(0, usedEnvelopeVolume - cargoVolume);
 

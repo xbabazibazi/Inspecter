@@ -5,6 +5,7 @@ import { flushSync } from 'react-dom';
 import { EQUIPMENT, equipmentById, type EquipmentSpec } from '@/lib/equipment';
 import { placeItems, type LineItem } from '@/lib/consolidate';
 import { csvTemplate, parseCsv, parseImportRows } from '@/lib/importItems';
+import { palletById, PALLETS } from '@/lib/pallets';
 import ConsolidationScene3D, { type ConsolidationScene3DHandle, type PlacedEntry } from './ConsolidationScene3D';
 import { Bar, Chip, Field, KV, fmt, pct, toNum, useStored } from './ui';
 
@@ -25,11 +26,13 @@ interface StoredItem {
   qty: string;
   stack: string;
   sideUp: string;
+  /** '1' = dik silindir/varil (çap = Uzunluk = Genişlik varsayılır) */
+  cylinder: string;
 }
 
 const DEFAULT_ITEMS: StoredItem[] = [
-  { id: 'seed-1', label: 'Firma A', l: '120', w: '80', h: '100', kg: '300', qty: '10', stack: '', sideUp: '0' },
-  { id: 'seed-2', label: 'Firma B', l: '60', w: '40', h: '40', kg: '15', qty: '40', stack: '', sideUp: '0' },
+  { id: 'seed-1', label: 'Firma A', l: '120', w: '80', h: '100', kg: '300', qty: '10', stack: '', sideUp: '0', cylinder: '0' },
+  { id: 'seed-2', label: 'Firma B', l: '60', w: '40', h: '40', kg: '15', qty: '40', stack: '', sideUp: '0', cylinder: '0' },
 ];
 
 let seq = 0;
@@ -69,7 +72,10 @@ export default function ConsolidationPlanner() {
       grossKg: Math.max(0, toNum(it.kg, 0)),
       qty: Math.max(0, Math.floor(toNum(it.qty, 0))),
       maxStack: Math.max(0, Math.floor(toNum(it.stack, 0))),
-      thisSideUp: it.sideUp === '1',
+      // Silindir/varil her zaman dik durur — yönelim serbest bırakılırsa yükseklik ekseni
+      // kayar ve 3B görselde eksen artık gerçek yüksekliği göstermez.
+      thisSideUp: it.cylinder === '1' ? true : it.sideUp === '1',
+      shape: it.cylinder === '1' ? 'cylinder' : 'box',
     })),
     [items],
   );
@@ -168,7 +174,7 @@ export default function ConsolidationPlanner() {
   const add = () =>
     setItems([
       ...items,
-      { id: newId(), label: `Kalem ${items.length + 1}`, l: '60', w: '40', h: '40', kg: '10', qty: '10', stack: '', sideUp: '0' },
+      { id: newId(), label: `Kalem ${items.length + 1}`, l: '60', w: '40', h: '40', kg: '10', qty: '10', stack: '', sideUp: '0', cylinder: '0' },
     ]);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -204,6 +210,7 @@ export default function ConsolidationPlanner() {
       qty: String(it.qty),
       stack: it.maxStack !== null ? String(it.maxStack) : '',
       sideUp: it.thisSideUp ? '1' : '0',
+      cylinder: '0',
     }));
     setItems([...items, ...next]);
   };
@@ -554,14 +561,52 @@ function ItemRow({ it, priority, color, onChange, onRemove, removable, dragging,
         <Field id={`${it.id}-stack`} label="Azami kat" hint="boş=sınırsız" value={it.stack} onChange={(v) => onChange({ stack: v })} placeholder="sınırsız" step={1} inputMode="numeric" />
       </div>
 
-      <label className={`chk${it.sideUp === '1' ? ' on' : ''}`}>
-        <input
-          type="checkbox"
-          checked={it.sideUp === '1'}
-          onChange={(e) => onChange({ sideUp: e.target.checked ? '1' : '0' })}
-        />
-        Bu taraf yukarı
-      </label>
+      <div className="iopts">
+        <label className={`chk${it.sideUp === '1' ? ' on' : ''}`}>
+          <input
+            type="checkbox"
+            checked={it.sideUp === '1'}
+            onChange={(e) => onChange({ sideUp: e.target.checked ? '1' : '0' })}
+          />
+          Bu taraf yukarı
+        </label>
+
+        <label className={`chk${it.cylinder === '1' ? ' on' : ''}`} title="Çap için Uzunluk = Genişlik gir">
+          <input
+            type="checkbox"
+            checked={it.cylinder === '1'}
+            onChange={(e) => onChange({ cylinder: e.target.checked ? '1' : '0' })}
+          />
+          Silindir (çap = Uzunluk = Genişlik)
+        </label>
+
+        <select
+          className="palletselect"
+          value=""
+          aria-label="Palet ekle"
+          onChange={(e) => {
+            const pallet = palletById(e.target.value);
+            if (!pallet) return;
+            // Sayı girdisine yazılan değer HTML sayı biçiminde olmalı (nokta ondalık) —
+            // fmt() gösterim içindir, tr-TR virgülü number input'ta sessizce reddedilir.
+            onChange({
+              l: String(pallet.l),
+              w: String(pallet.w),
+              h: String(Math.round((toNum(it.h, 0) + pallet.h) * 10) / 10),
+              kg: String(Math.round((toNum(it.kg, 0) + pallet.kg) * 10) / 10),
+            });
+          }}
+        >
+          <option value="">+ Palet ekle…</option>
+          {PALLETS.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+      </div>
+      <div className="hint" style={{ marginTop: 4 }}>
+        Palet seçilince taban ölçüsü palete ayarlanır, yüksekliğe ve ağırlığa palet eklenir —
+        sonra normal kalem gibi düzenleyebilirsin.
+      </div>
     </div>
   );
 }
