@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import Nav from '@/components/Nav';
+import PwaRegister from '@/components/PwaRegister';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -9,6 +10,14 @@ export const metadata: Metadata = {
   },
   description:
     'Konteyner yükleme hesaplayıcı, ISO 6346 numara doğrulama, konteyner özellikleri ve navlun ağırlığı. Hesap yok, kayıt yok — hepsi tarayıcında çalışır.',
+  icons: {
+    apple: '/apple-touch-icon.png',
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Inspecter',
+  },
 };
 
 export const viewport: Viewport = {
@@ -30,6 +39,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
+        <PwaRegister />
         <div className="app">
           <header className="top">
             <div className="brand">
