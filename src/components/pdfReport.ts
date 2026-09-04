@@ -2,14 +2,21 @@
  * Konsolidasyon planı PDF'i — jsPDF ile doğrudan istemci tarafında üretilir.
  *
  * Neden `window.print()` değil: Capacitor'ın native Android/iOS sarmalayıcısında
- * sayfa standart bir WebView içinde çalışır ve WebView'da `window.print()`in
- * bağlı olduğu bir yazdırma işleyicisi YOK (uygulama tarafında ayrıca
- * PrintManager entegrasyonu gerekir, Capacitor bunu otomatik sağlamaz) — düğme
- * tarayıcıda çalışıp uygulama içinde sessizce hiçbir şey yapmazdı. Gerçek bir
- * PDF dosyası üretip Web Share API (`navigator.share`) ile paylaşmak hem
- * tarayıcıda hem native uygulamada aynı şekilde çalışır (WhatsApp dahil).
+ * sayfa çıplak bir WebView içinde çalışır ve `window.print()`in bağlı olduğu bir
+ * yazdırma işleyicisi YOK — düğme tarayıcıda çalışıp uygulama içinde sessizce
+ * hiçbir şey yapmazdı.
+ *
+ * Neden `navigator.share`/`<a download>` de TEK BAŞINA yetmiyor: aynı sebep —
+ * çıplak WebView'da bunlar da bir indirme yöneticisine/paylaşım köprüsüne bağlı
+ * değil, native uygulamada sessizce başarısız olabiliyor. Bu yüzden native
+ * platformda (`Capacitor.isNativePlatform()`) @capacitor/filesystem + @capacitor/share
+ * kullanılıyor — ikisi de gerçek native köprü, WebView'ın kendi API desteğine
+ * bağımlı değil. Tarayıcıda ise Web Share API / blob indirme aynen çalışır.
  */
 import { jsPDF } from 'jspdf';
+import { Capacitor } from '@capacitor/core';
+import { Directory, Filesystem } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
 import type { ConsolidationResult } from '@/lib/consolidate';
 import type { EquipmentSpec } from '@/lib/equipment';
 import { fmt, pct } from './ui';
@@ -130,8 +137,31 @@ export function buildConsolidationPdf(
   return doc.output('blob');
 }
 
-/** Mümkünse Web Share API ile paylaşır (WhatsApp dahil); yoksa dosyayı indirir. */
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve((reader.result as string).split(',')[1] ?? '');
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Native uygulamada (Capacitor) `navigator.share` ve `<a download>` blob linki
+ * GÜVENİLMEZ — çıplak Android WebView'da bir indirme yöneticisine bağlı değiller,
+ * sessizce hiçbir şey yapmayabilirler. Bunun yerine dosyayı @capacitor/filesystem
+ * ile uygulama önbelleğine yazıp @capacitor/share ile native paylaşım sayfasını
+ * (WhatsApp dahil) açıyoruz — ikisi de gerçek native köprüler, WebView'a bağımlı
+ * değil. Tarayıcıda ise Web Share API / dosya indirme aynen çalışır.
+ */
 export async function shareOrDownloadPdf(blob: Blob, fileName: string): Promise<'shared' | 'downloaded'> {
+  if (Capacitor.isNativePlatform()) {
+    const base64 = await blobToBase64(blob);
+    const written = await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache });
+    await Share.share({ title: 'Inspecter Konsolidasyon Planı', files: [written.uri] });
+    return 'shared';
+  }
+
   const file = new File([blob], fileName, { type: 'application/pdf' });
   const nav = navigator as Navigator & { canShare?: (data: { files: File[] }) => boolean };
 
