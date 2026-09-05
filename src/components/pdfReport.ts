@@ -121,17 +121,24 @@ export function buildConsolidationPdf(
     y += 5.5;
   });
 
+  y += 4;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.text('3D yerleşim görünümü', marginX, y);
+  y += 4;
+
   if (snapshot) {
     const imgProps = doc.getImageProperties(snapshot);
     const w = pageW - marginX * 2;
     const h = (imgProps.height * w) / imgProps.width;
     if (y + h > pageH - 16) { doc.addPage(); y = 18; }
-    y += 4;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('3D yerleşim görünümü', marginX, y);
-    y += 4;
     doc.addImage(snapshot, 'PNG', marginX, y, w, h);
+  } else {
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(120, 120, 120);
+    doc.text('Görünüm alınamadı — sahneyi bir kez döndürüp tekrar dene.', marginX, y);
+    doc.setTextColor(0, 0, 0);
   }
 
   return doc.output('blob');

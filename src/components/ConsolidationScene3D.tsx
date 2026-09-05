@@ -1,10 +1,10 @@
 'use client';
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
-import type { ThreeEvent } from '@react-three/fiber';
+import type { RootState, ThreeEvent } from '@react-three/fiber';
 import { Canvas } from '@react-three/fiber';
 import { Billboard, Edges, Grid, OrbitControls, Text } from '@react-three/drei';
-import { Plane, Vector3, type WebGLRenderer } from 'three';
+import { Plane, Vector3 } from 'three';
 import { boxesOverlap, boxFromBlock, resolvePlacement, type Box3, type PlacedItemBlock } from '@/lib/consolidate';
 import type { EquipmentSpec } from '@/lib/equipment';
 
@@ -46,9 +46,18 @@ const ConsolidationScene3D = forwardRef<ConsolidationScene3DHandle, {
   onMoveBlock: (key: string, x: number, y: number, z: number) => void;
   onResetBlock: (key: string) => void;
 }>(function ConsolidationScene3D({ equipment, placed, colorFor, onMoveBlock, onResetBlock }, ref) {
-  const glRef = useRef<WebGLRenderer | null>(null);
+  // Otomatik render döngüsünün buffer'da o an ne bıraktığına güvenmek yerine
+  // (özellikle mount sonrası ilk anlarda ya da GL durumu belirsizken kırılgan),
+  // yakalarken sahneyi/kamerayı elle bir kez render edip HEMEN ardından okuyoruz —
+  // react-three-fiber'ın kendi önerdiği ekran görüntüsü tekniği.
+  const threeStateRef = useRef<RootState | null>(null);
   useImperativeHandle(ref, () => ({
-    captureImage: () => glRef.current?.domElement.toDataURL('image/png') ?? null,
+    captureImage: () => {
+      const state = threeStateRef.current;
+      if (!state) return null;
+      state.gl.render(state.scene, state.camera);
+      return state.gl.domElement.toDataURL('image/png');
+    },
   }), []);
 
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
@@ -122,7 +131,7 @@ const ConsolidationScene3D = forwardRef<ConsolidationScene3DHandle, {
       <Canvas
         dpr={[1, 2]}
         gl={{ preserveDrawingBuffer: true }}
-        onCreated={(state) => { glRef.current = state.gl; }}
+        onCreated={(state) => { threeStateRef.current = state; }}
         camera={{ position: [Lm * 0.4, diag * 0.5, Wm * 1.6], fov: 45, near: 0.05, far: diag * 30 }}
         onPointerMissed={() => setSelectedKey(null)}
         style={{ cursor: moveActive ? 'move' : 'auto' }}
