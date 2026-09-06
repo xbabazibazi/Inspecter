@@ -24,8 +24,11 @@ body{
 @media(min-width:720px){.app{padding:0 28px 96px}}
 
 header.top{padding:26px 0 18px}
-.brand{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
-.brand b{font-size:23px;font-weight:800;letter-spacing:-.028em}
+.brand{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+/* Logo bir SVG: yüksekliği sabitle, genişlik en-boy oranından gelsin.
+   `flex:none` şart — flex öğesi olarak varsayılan flex-shrink genişliği 0'a eziyor. */
+.brand .logo{height:32px;width:auto;aspect-ratio:25/6;flex:none;display:block;color:var(--ink)}
+@media(min-width:720px){.brand .logo{height:36px}}
 .brand span{
   font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.16em;
   text-transform:uppercase;color:var(--ink-3);

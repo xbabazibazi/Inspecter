@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import Logo from '@/components/Logo';
 import Nav from '@/components/Nav';
 import PwaRegister from '@/components/PwaRegister';
 import './globals.css';
@@ -43,7 +44,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="app">
           <header className="top">
             <div className="brand">
-              <b>Inspecter</b>
+              <Logo className="logo" />
               <span className="rev mono">v0.1</span>
             </div>
             <p className="tagline">

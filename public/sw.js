@@ -2,7 +2,9 @@
 // sunucu tarafı yok, bu yüzden "önce ağ" yerine "önce önbellek" tercih edildi:
 // araçlar bir kere açıldıktan sonra internetsiz de çalışsın. Sürüm numarasını
 // artırmak eski önbelleği temizler — bu, tek cache-busting mekanizmasıdır.
-const CACHE = 'inspecter-v1';
+// Sürümü artırmak eski önbelleği siler — logo/PDF gibi görünür değişikliklerden
+// sonra artır ki kurulu kullanıcılar bir yükleme geç kalmadan yeniyi alsın.
+const CACHE = 'inspecter-v2';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

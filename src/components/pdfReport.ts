@@ -12,6 +12,9 @@
  * platformda (`Capacitor.isNativePlatform()`) @capacitor/filesystem + @capacitor/share
  * kullanılıyor — ikisi de gerçek native köprü, WebView'ın kendi API desteğine
  * bağımlı değil. Tarayıcıda ise Web Share API / blob indirme aynen çalışır.
+ *
+ * Font: jsPDF'in yerleşik fontları Türkçe ı/İ/ğ/Ğ/ş/Ş'yi RENDER EDEMEZ (Latin-1
+ * dışı). Gömülü Archivo alt kümesi için bkz. `pdfFont.ts`.
  */
 import { jsPDF } from 'jspdf';
 import { Capacitor } from '@capacitor/core';
@@ -20,6 +23,16 @@ import { Share } from '@capacitor/share';
 import type { ConsolidationResult } from '@/lib/consolidate';
 import type { EquipmentSpec } from '@/lib/equipment';
 import { fmt, pct } from './ui';
+
+const FONT = 'Archivo';
+
+/** Marka renkleri (globals.css token'larının RGB karşılığı). */
+const C_ACCENT: [number, number, number] = [9, 74, 65];
+const C_ACCENT_SOFT: [number, number, number] = [220, 234, 230];
+const C_INK: [number, number, number] = [19, 26, 24];
+const C_INK_2: [number, number, number] = [90, 99, 96];
+const C_RULE: [number, number, number] = [178, 186, 181];
+const C_STAMP: [number, number, number] = [158, 59, 46];
 
 interface ReportItem {
   label: string;
@@ -31,114 +44,224 @@ interface ReportItem {
   cylinder: boolean;
 }
 
-export function buildConsolidationPdf(
+/**
+ * Marka amblemini çizer — uygulama ikonuyla (icon.svg, 32 birimlik tuval) aynı
+ * geometri, `size` mm'ye ölçeklenmiş: yuvarlak kare + oluklu konteyner silueti.
+ */
+function drawLogoMark(doc: jsPDF, x: number, y: number, size: number) {
+  const k = size / 32; // icon.svg 32x32 tuvalinden mm'ye
+  doc.setFillColor(...C_ACCENT);
+  doc.roundedRect(x, y, size, size, 5 * k, 5 * k, 'F');
+
+  doc.setDrawColor(...C_ACCENT_SOFT);
+  doc.setLineWidth(1.8 * k);
+  doc.roundedRect(x + 6 * k, y + 9 * k, 20 * k, 14 * k, 1 * k, 1 * k, 'S');
+  for (const gx of [10.5, 15, 19.5]) {
+    doc.line(x + gx * k, y + 9 * k, x + gx * k, y + 23 * k);
+  }
+}
+
+export async function buildConsolidationPdf(
   equipment: EquipmentSpec,
   result: ConsolidationResult,
   items: ReportItem[],
   snapshot: string | null,
-): Blob {
+): Promise<Blob> {
+  // Font ~76 KB; yalnızca PDF üretilirken yüklensin diye dinamik import.
+  const { ARCHIVO_REGULAR_B64, ARCHIVO_BOLD_B64 } = await import('./pdfFont');
+
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  doc.addFileToVFS('Archivo-Regular.ttf', ARCHIVO_REGULAR_B64);
+  doc.addFont('Archivo-Regular.ttf', FONT, 'normal');
+  doc.addFileToVFS('Archivo-Bold.ttf', ARCHIVO_BOLD_B64);
+  doc.addFont('Archivo-Bold.ttf', FONT, 'bold');
+
   const marginX = 14;
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
-  let y = 18;
+  const contentW = pageW - marginX * 2;
 
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.text('Inspecter · Konsolidasyon Planı', marginX, y);
-  doc.setFont('helvetica', 'normal');
+  // ---- başlık (marka kilidi) ----
+  const badge = 11;
+  drawLogoMark(doc, marginX, 12, badge);
+
+  doc.setFont(FONT, 'bold');
+  doc.setFontSize(15);
+  doc.setTextColor(...C_INK);
+  doc.text('INSPECTER', marginX + badge + 4, 18.5, { charSpace: 0.3 });
+
+  doc.setFont(FONT, 'normal');
   doc.setFontSize(9);
-  doc.text(new Date().toLocaleDateString('tr-TR'), pageW - marginX, y, { align: 'right' });
+  doc.setTextColor(...C_INK_2);
+  doc.text('Konsolidasyon planı', marginX + badge + 4, 22.8);
+  doc.text(new Date().toLocaleDateString('tr-TR'), pageW - marginX, 18.5, { align: 'right' });
 
-  y += 8;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(13);
+  doc.setDrawColor(...C_RULE);
+  doc.setLineWidth(0.4);
+  doc.line(marginX, 26.5, pageW - marginX, 26.5);
+
+  let y = 35;
+
+  // ---- ekipman + durum ----
+  doc.setFont(FONT, 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(...C_INK);
   doc.text(equipment.name, marginX, y);
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
-  const status = result.boundBy === 'none' ? 'Sığıyor' : result.boundBy === 'length' ? 'Uzunluk aşıldı' : 'Ağırlık aşıldı';
-  doc.text(status, pageW - marginX, y, { align: 'right' });
 
-  y += 8;
-  doc.setFontSize(10);
-  const summaryLines = [
-    `Uzunluk kullanımı: ${fmt(result.totalLengthUsed / 10)} / ${fmt((equipment.L * (1 - result.allowance)) / 10)} cm · ${pct(result.lengthUtil)}`,
-    `Ağırlık kullanımı: ${fmt(result.totalWeight)} / ${fmt(equipment.payload * (1 - result.allowance))} kg · ${pct(result.weightUtil)}`,
+  const fits = result.boundBy === 'none';
+  const status = fits ? 'SIĞIYOR' : result.boundBy === 'length' ? 'UZUNLUK AŞILDI' : 'AĞIRLIK AŞILDI';
+  doc.setFont(FONT, 'bold');
+  doc.setFontSize(8);
+  const stW = doc.getTextWidth(status) + 6;
+  doc.setFillColor(...(fits ? C_ACCENT_SOFT : [242, 225, 221] as [number, number, number]));
+  doc.roundedRect(pageW - marginX - stW, y - 4.6, stW, 6.4, 1, 1, 'F');
+  doc.setTextColor(...(fits ? C_ACCENT : C_STAMP));
+  doc.text(status, pageW - marginX - stW / 2, y, { align: 'center' });
+
+  y += 9;
+
+  // ---- özet ----
+  const rows: Array<[string, string]> = [
+    [
+      'Uzunluk kullanımı',
+      `${fmt(result.totalLengthUsed / 10)} / ${fmt((equipment.L * (1 - result.allowance)) / 10)} cm · ${pct(result.lengthUtil)}`,
+    ],
+    [
+      'Ağırlık kullanımı',
+      `${fmt(result.totalWeight)} / ${fmt(equipment.payload * (1 - result.allowance))} kg · ${pct(result.weightUtil)}`,
+    ],
   ];
   if (result.blocks.length > 0) {
-    summaryLines.push(`Net yük hacmi: ${fmt(result.cargoVolume / 1e9, 1)} m³`);
-    summaryLines.push(`Fire (boşluk): ${fmt(result.voidVolume / 1e9, 1)} m³ · dolu bölümde %${Math.round(result.voidRatio * 100)}`);
+    rows.push(['Net yük hacmi', `${fmt(result.cargoVolume / 1e9, 1)} m³`]);
+    rows.push([
+      'Fire (boşluk)',
+      `${fmt(result.voidVolume / 1e9, 1)} m³ · dolu bölümde %${Math.round(result.voidRatio * 100)}`,
+    ]);
   }
-  if (result.allowance > 0) summaryLines.push(`Fire payı: %${Math.round(result.allowance * 100)}`);
-  for (const line of summaryLines) {
-    doc.text(line, marginX, y);
-    y += 5.5;
+  if (result.allowance > 0) rows.push(['Fire payı', `%${Math.round(result.allowance * 100)}`]);
+
+  doc.setFontSize(10);
+  for (const [k, v] of rows) {
+    doc.setFont(FONT, 'normal');
+    doc.setTextColor(...C_INK_2);
+    doc.text(k, marginX, y);
+    doc.setFont(FONT, 'bold');
+    doc.setTextColor(...C_INK);
+    doc.text(v, marginX + 45, y);
+    y += 6;
   }
 
+  // ---- uyarılar ----
+  const warn = (text: string) => {
+    doc.setFont(FONT, 'bold');
+    doc.setFontSize(9.5);
+    doc.setTextColor(...C_STAMP);
+    const lines = doc.splitTextToSize(text, contentW) as string[];
+    doc.text(lines, marginX, y);
+    y += lines.length * 5 + 1;
+    doc.setTextColor(...C_INK);
+  };
+
+  y += 1;
   if (result.unfitItems.length > 0) {
-    doc.setTextColor(150, 60, 46);
-    doc.text(`Sığmayan kalemler: ${result.unfitItems.map((i) => i.label).join(', ')}`, marginX, y);
-    doc.setTextColor(0, 0, 0);
-    y += 5.5;
+    warn(`Sığmayan kalemler: ${result.unfitItems.map((i) => i.label).join(', ')}`);
   }
-  if (result.boundBy !== 'none') {
-    const overflowText = result.boundBy === 'length'
-      ? `Kapasite aşıldı: gereken uzunluk ${fmt(result.lengthOverflow / 10)} cm fazla.`
-      : `Kapasite aşıldı: toplam ağırlık ${fmt(result.weightOverflow)} kg fazla.`;
-    doc.setTextColor(150, 60, 46);
-    doc.text(overflowText, marginX, y);
-    doc.setTextColor(0, 0, 0);
-    y += 5.5;
+  if (!fits) {
+    warn(
+      result.boundBy === 'length'
+        ? `Kapasite aşıldı — gereken uzunluk ${fmt(result.lengthOverflow / 10)} cm fazla.`
+        : `Kapasite aşıldı — toplam ağırlık ${fmt(result.weightOverflow)} kg fazla.`,
+    );
   }
 
-  y += 3;
-  doc.setFont('helvetica', 'bold');
+  // ---- kalem tablosu ----
+  y += 4;
+  doc.setFont(FONT, 'bold');
   doc.setFontSize(11);
+  doc.setTextColor(...C_INK);
   doc.text('Kalemler', marginX, y);
   y += 6;
 
-  doc.setFontSize(9.5);
-  const cols = [marginX, marginX + 8, marginX + 62, marginX + 100, marginX + 138, marginX + 160];
-  doc.setFont('helvetica', 'bold');
-  doc.text('#', cols[0], y);
-  doc.text('Etiket', cols[1], y);
-  doc.text('Ölçü (cm)', cols[2], y);
-  doc.text('Ağırlık (kg/adet)', cols[3], y);
-  doc.text('Adet', cols[4], y);
-  doc.setFont('helvetica', 'normal');
-  y += 2;
-  doc.setLineWidth(0.2);
-  doc.line(marginX, y, pageW - marginX, y);
-  y += 5;
+  const cols = [marginX, marginX + 9, marginX + 78, marginX + 118, marginX + 155];
+  const headers = ['#', 'Etiket', 'Ölçü (cm)', 'Ağırlık (kg/ad.)', 'Adet'];
 
+  const tableHead = () => {
+    doc.setFont(FONT, 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(...C_INK_2);
+    headers.forEach((h, i) => doc.text(h, cols[i], y));
+    y += 1.8;
+    doc.setDrawColor(...C_RULE);
+    doc.setLineWidth(0.3);
+    doc.line(marginX, y, pageW - marginX, y);
+    y += 4.6;
+  };
+  tableHead();
+
+  doc.setFontSize(9.5);
   items.forEach((it, i) => {
-    if (y > pageH - 20) { doc.addPage(); y = 18; }
+    if (y > pageH - 22) {
+      doc.addPage();
+      y = 20;
+      tableHead();
+      doc.setFontSize(9.5);
+    }
+    doc.setFont(FONT, 'normal');
+    doc.setTextColor(...C_INK_2);
     doc.text(String(i + 1), cols[0], y);
-    doc.text(it.label + (it.cylinder ? ' (silindir)' : ''), cols[1], y);
+    doc.setTextColor(...C_INK);
+    const label = it.label + (it.cylinder ? ' (silindir)' : '');
+    doc.text(doc.splitTextToSize(label, 64)[0] as string, cols[1], y);
     doc.text(`${fmt(it.l)}×${fmt(it.w)}×${fmt(it.h)}`, cols[2], y);
     doc.text(fmt(it.kg, 1), cols[3], y);
     doc.text(String(it.qty), cols[4], y);
-    y += 5.5;
+    y += 5.6;
   });
 
-  y += 4;
-  doc.setFont('helvetica', 'bold');
+  // ---- 3D görünüm ----
+  y += 5;
+  doc.setFont(FONT, 'bold');
   doc.setFontSize(11);
-  doc.text('3D yerleşim görünümü', marginX, y);
-  y += 4;
+  doc.setTextColor(...C_INK);
 
   if (snapshot) {
-    const imgProps = doc.getImageProperties(snapshot);
-    const w = pageW - marginX * 2;
-    const h = (imgProps.height * w) / imgProps.width;
-    if (y + h > pageH - 16) { doc.addPage(); y = 18; }
+    const props = doc.getImageProperties(snapshot);
+    const w = contentW;
+    const h = (props.height * w) / props.width;
+    // Başlık ile görsel aynı sayfada kalsın diye ikisini birlikte ölçüyoruz.
+    if (y + 6 + h > pageH - 16) {
+      doc.addPage();
+      y = 20;
+    }
+    doc.text('3D yerleşim görünümü', marginX, y);
+    y += 5;
+    doc.setDrawColor(...C_RULE);
+    doc.setLineWidth(0.3);
     doc.addImage(snapshot, 'PNG', marginX, y, w, h);
+    doc.rect(marginX, y, w, h, 'S');
   } else {
-    doc.setFont('helvetica', 'normal');
+    if (y > pageH - 26) { doc.addPage(); y = 20; }
+    doc.text('3D yerleşim görünümü', marginX, y);
+    y += 5;
+    doc.setFont(FONT, 'normal');
     doc.setFontSize(9);
-    doc.setTextColor(120, 120, 120);
+    doc.setTextColor(...C_INK_2);
     doc.text('Görünüm alınamadı — sahneyi bir kez döndürüp tekrar dene.', marginX, y);
-    doc.setTextColor(0, 0, 0);
+  }
+
+  // ---- altbilgi (her sayfaya) ----
+  const pages = doc.getNumberOfPages();
+  for (let p = 1; p <= pages; p++) {
+    doc.setPage(p);
+    doc.setFont(FONT, 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...C_INK_2);
+    doc.text(
+      'Bu bir yerleşim tahminidir; ambalaj ve bağlama payı için fire payı girilebilir.',
+      marginX,
+      pageH - 10,
+    );
+    doc.text(`${p} / ${pages}`, pageW - marginX, pageH - 10, { align: 'right' });
   }
 
   return doc.output('blob');
@@ -153,14 +276,6 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-/**
- * Native uygulamada (Capacitor) `navigator.share` ve `<a download>` blob linki
- * GÜVENİLMEZ — çıplak Android WebView'da bir indirme yöneticisine bağlı değiller,
- * sessizce hiçbir şey yapmayabilirler. Bunun yerine dosyayı @capacitor/filesystem
- * ile uygulama önbelleğine yazıp @capacitor/share ile native paylaşım sayfasını
- * (WhatsApp dahil) açıyoruz — ikisi de gerçek native köprüler, WebView'a bağımlı
- * değil. Tarayıcıda ise Web Share API / dosya indirme aynen çalışır.
- */
 export async function shareOrDownloadPdf(blob: Blob, fileName: string): Promise<'shared' | 'downloaded'> {
   if (Capacitor.isNativePlatform()) {
     const base64 = await blobToBase64(blob);

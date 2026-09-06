@@ -233,7 +233,7 @@ export default function ConsolidationPlanner() {
         qty: Math.max(0, Math.floor(toNum(it.qty, 0))),
         cylinder: it.cylinder === '1',
       }));
-      const blob = buildConsolidationPdf(equipment, result, reportItems, snapshot);
+      const blob = await buildConsolidationPdf(equipment, result, reportItems, snapshot);
       const outcome = await shareOrDownloadPdf(blob, `inspecter-${equipment.id}.pdf`);
       setPdfNote(outcome === 'shared' ? 'Paylaşıldı.' : 'PDF indirildi.');
     } catch {
