@@ -176,8 +176,46 @@ export async function buildConsolidationPdf(
     );
   }
 
-  // ---- kalem tablosu ----
+  // ---- 3D görünüm ----
+  // Tabloda ÖNCE geliyor ve boyutu sınırlanıyor: yükleme ekibinin ilk bakacağı
+  // şey bu, ayrıca mobil tuval neredeyse kare olduğu için (ör. 720x680) tam
+  // genişlikte ~172 mm tutuyordu ve sessizce ikinci sayfaya taşıyordu.
   y += 4;
+  doc.setFont(FONT, 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(...C_INK);
+  doc.text('3D yerleşim görünümü', marginX, y);
+  y += 5;
+
+  if (snapshot) {
+    const props = doc.getImageProperties(snapshot);
+    const MAX_H = 95; // mm — her zaman ilk sayfaya sığsın
+    let w = contentW;
+    let h = (props.height * w) / props.width;
+    if (h > MAX_H) {
+      h = MAX_H;
+      w = (props.width * h) / props.height;
+    }
+    const x = marginX + (contentW - w) / 2; // dar kalırsa ortala
+    doc.setDrawColor(...C_RULE);
+    doc.setLineWidth(0.3);
+    doc.addImage(snapshot, 'PNG', x, y, w, h);
+    doc.rect(x, y, w, h, 'S');
+    y += h + 6;
+  } else {
+    doc.setFont(FONT, 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...C_STAMP);
+    const reason = snapshotError ?? 'Görüntü alınamadı.';
+    const lines = doc.splitTextToSize(
+      `${reason} Sahneyi bir kez döndürüp tekrar dene.`, contentW,
+    ) as string[];
+    doc.text(lines, marginX, y);
+    doc.setTextColor(...C_INK);
+    y += lines.length * 5 + 4;
+  }
+
+  // ---- kalem tablosu ----
   doc.setFont(FONT, 'bold');
   doc.setFontSize(11);
   doc.setTextColor(...C_INK);
@@ -219,38 +257,6 @@ export async function buildConsolidationPdf(
     doc.text(String(it.qty), cols[4], y);
     y += 5.6;
   });
-
-  // ---- 3D görünüm ----
-  y += 5;
-  doc.setFont(FONT, 'bold');
-  doc.setFontSize(11);
-  doc.setTextColor(...C_INK);
-
-  if (snapshot) {
-    const props = doc.getImageProperties(snapshot);
-    const w = contentW;
-    const h = (props.height * w) / props.width;
-    // Başlık ile görsel aynı sayfada kalsın diye ikisini birlikte ölçüyoruz.
-    if (y + 6 + h > pageH - 16) {
-      doc.addPage();
-      y = 20;
-    }
-    doc.text('3D yerleşim görünümü', marginX, y);
-    y += 5;
-    doc.setDrawColor(...C_RULE);
-    doc.setLineWidth(0.3);
-    doc.addImage(snapshot, 'PNG', marginX, y, w, h);
-    doc.rect(marginX, y, w, h, 'S');
-  } else {
-    if (y > pageH - 26) { doc.addPage(); y = 20; }
-    doc.text('3D yerleşim görünümü', marginX, y);
-    y += 5;
-    doc.setFont(FONT, 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(...C_INK_2);
-    const reason = snapshotError ?? 'Görüntü alınamadı.';
-    doc.text(`${reason} Sahneyi bir kez döndürüp tekrar dene.`, marginX, y);
-  }
 
   // ---- altbilgi (her sayfaya) ----
   const pages = doc.getNumberOfPages();

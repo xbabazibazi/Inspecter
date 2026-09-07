@@ -10,7 +10,7 @@ const ITEMS: LineItem[] = [
   { id: 'b', label: 'Firma B çğışüö İĞŞÜÖÇ', l: 600, w: 400, h: 400, grossKg: 15, qty: 40 },
 ];
 
-async function build(snapshot: string | null = null) {
+async function build(snapshot: string | null = null, snapshotError: string | null = null) {
   const equipment = eq();
   const result = placeItems(equipment, ITEMS, 0.05);
   const blob = await buildConsolidationPdf(
@@ -21,6 +21,7 @@ async function build(snapshot: string | null = null) {
       kg: i.grossKg, qty: i.qty, cylinder: false,
     })),
     snapshot,
+    snapshotError,
   );
   return Buffer.from(await blob.arrayBuffer());
 }
@@ -46,11 +47,22 @@ describe('buildConsolidationPdf', () => {
     expect(pdf).toContain('Identity-H'); // Unicode/CID kodlama
   });
 
-  it('3D görüntü verilirse PDF\'e gömülür', async () => {
-    // 1x1 saydam PNG — görüntü yolunu (addImage) sınamak için yeterli.
-    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
-    const withImg = await build(png);
-    const without = await build(null);
-    expect(withImg.length).toBeGreaterThan(without.length);
+  // 1x1 saydam PNG — görüntü yolunu (addImage) sınamak için yeterli.
+  const PNG_1X1 =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+  it('3D görüntü verilirse PDF\'e gerçekten gömülür', async () => {
+    // Bayt boyutu karşılaştırması kırılgan (görselsiz dalda daha uzun bir hata
+    // metni yazılıyor) — bunun yerine PDF'te bir görüntü nesnesi var mı bakıyoruz.
+    const withImg = (await build(PNG_1X1)).toString('latin1');
+    expect(withImg).toContain('/Subtype /Image');
+  });
+
+  it('görüntü yoksa sebebi PDF\'e yazılır, sessizce boş bırakılmaz', async () => {
+    const pdf = (await build(null, 'Sahne henüz çizilmemiş.')).toString('latin1');
+    expect(pdf).not.toContain('/Subtype /Image');
+    // Metin gömülü fontla yazıldığı için düz aranamaz; en azından görüntü
+    // nesnesinin hiç oluşturulmadığını ve PDF'in geçerli kaldığını doğrula.
+    expect(pdf.startsWith('%PDF-')).toBe(true);
   });
 });
