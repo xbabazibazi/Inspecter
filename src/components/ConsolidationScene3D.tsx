@@ -2,10 +2,11 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import type { RootState, ThreeEvent } from '@react-three/fiber';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { Billboard, Edges, Grid, OrbitControls, Text } from '@react-three/drei';
 import { Plane, Vector3 } from 'three';
 import { boxesOverlap, boxFromBlock, resolvePlacement, type Box3, type PlacedItemBlock } from '@/lib/consolidate';
+import { presetCamera, VIEWS, type ViewName } from '@/lib/cameraPresets';
 import type { EquipmentSpec } from '@/lib/equipment';
 
 /** mm -> sahne birimi (metre). three.js sahneleri metre ölçeğinde daha iyi davranır. */
@@ -32,6 +33,39 @@ export interface PlacedEntry {
   /** Görsel genişlik ofseti (mm) — elle taşınmışsa override, değilse 0 */
   z: number;
   overridden: boolean;
+}
+
+/**
+ * Kamerayı seçilen ön ayara taşır.
+ *
+ * Sahnede uzunluk X, genişlik Z, yükseklik Y ekseninde. Yandan görünüm için
+ * kamera +Z'den bakar (X–Y düzlemi = uzunluk × yükseklik), önden görünüm için
+ * +X'ten bakar (Z–Y düzlemi = genişlik × yükseklik). OrbitControls `makeDefault`
+ * olduğu için hedefi de birlikte güncellemek gerekir, yoksa kullanıcı döndürmeye
+ * başlayınca kamera eski hedefe geri sıçrar.
+ */
+function CameraRig({
+  view, L, W, H, diag,
+}: {
+  view: { name: ViewName; nonce: number };
+  L: number; W: number; H: number; diag: number;
+}) {
+  const camera = useThree((s) => s.camera);
+  const controls = useThree((s) => s.controls) as { target: Vector3; update: () => void } | null;
+
+  useEffect(() => {
+    const { pos, target } = presetCamera(view.name, L, W, H, diag);
+    const t = new Vector3(...target);
+    camera.position.set(...pos);
+    camera.lookAt(t);
+    camera.updateProjectionMatrix();
+    if (controls) {
+      controls.target.copy(t);
+      controls.update();
+    }
+  }, [view, camera, controls, L, W, H, diag]);
+
+  return null;
 }
 
 export interface ConsolidationScene3DHandle {
@@ -142,6 +176,12 @@ const ConsolidationScene3D = forwardRef<ConsolidationScene3DHandle, {
   const Hm = Math.max(0.1, equipment.H * SCALE);
   const diag = Math.sqrt(Lm * Lm + Wm * Wm + Hm * Hm);
 
+  // Kamera ön ayarı. `nonce` şart: kullanıcı sahneyi elle döndürdükten sonra
+  // AYNI düğmeye tekrar basınca da görünüm sıfırlansın (yalnız isim değişseydi
+  // effect yeniden çalışmazdı).
+  const [view, setView] = useState<{ name: ViewName; nonce: number }>({ name: '3d', nonce: 0 });
+  const pickView = (name: ViewName) => setView((v) => ({ name, nonce: v.nonce + 1 }));
+
   return (
     <>
       <Canvas
@@ -152,6 +192,8 @@ const ConsolidationScene3D = forwardRef<ConsolidationScene3DHandle, {
         onPointerMissed={() => setSelectedKey(null)}
         style={{ cursor: moveActive ? 'move' : 'auto' }}
       >
+        <CameraRig view={view} L={Lm} W={Wm} H={Hm} diag={diag} />
+
         <ambientLight intensity={0.75} />
         <directionalLight position={[Lm * 0.5, Hm * 4, Wm * 2]} intensity={0.9} />
         <directionalLight position={[-Lm * 0.5, Hm * 2, -Wm * 1.5]} intensity={0.35} />
@@ -194,6 +236,19 @@ const ConsolidationScene3D = forwardRef<ConsolidationScene3DHandle, {
           maxDistance={diag * 5}
         />
       </Canvas>
+
+      <div className="sceneviews" role="group" aria-label="Kamera görünümü">
+        {VIEWS.map((v) => (
+          <button
+            key={v.name}
+            type="button"
+            aria-pressed={view.name === v.name}
+            onClick={() => pickView(v.name)}
+          >
+            {v.label}
+          </button>
+        ))}
+      </div>
 
       <label className={`chk scenemode${moveActive ? ' on' : ''}`}>
         <input

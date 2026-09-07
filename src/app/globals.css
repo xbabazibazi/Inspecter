@@ -274,8 +274,21 @@ nav.tabs a[data-active="true"]{color:var(--accent);border-bottom-color:var(--acc
   background:color-mix(in srgb,var(--bg) 85%,transparent);padding:4px 8px;
   border-radius:3px;pointer-events:none;
 }}
+/* Kamera görünümü düğmeleri — sol üst. Seçim paneli (.sceneitem) bunun ALTINA
+   iner, alt köşeler zaten ipucu ve Taşıma modu tarafından kullanılıyor. */
+.sceneviews{position:absolute;top:8px;left:10px;display:flex;gap:4px;flex-wrap:wrap}
+.sceneviews button{
+  appearance:none;border:1px solid var(--rule-strong);border-radius:20px;
+  background:color-mix(in srgb,var(--bg) 90%,transparent);
+  font-family:"IBM Plex Mono",monospace;font-size:11px;color:var(--ink-2);
+  padding:7px 11px;min-height:34px;cursor:pointer;
+}
+.sceneviews button:hover{border-color:var(--accent);color:var(--accent)}
+.sceneviews button[aria-pressed="true"]{
+  background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:700;
+}
 .sceneitem{
-  position:absolute;top:8px;left:10px;right:10px;display:flex;align-items:center;gap:8px;
+  position:absolute;top:50px;left:10px;right:10px;display:flex;align-items:center;gap:8px;
   flex-wrap:wrap;font-family:"IBM Plex Mono",monospace;font-size:11px;
   color:var(--ink);background:color-mix(in srgb,var(--surface) 92%,transparent);padding:6px 10px;
   border-radius:3px;pointer-events:none;border:1px solid var(--rule);
