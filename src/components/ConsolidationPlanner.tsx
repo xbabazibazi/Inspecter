@@ -235,8 +235,17 @@ export default function ConsolidationPlanner() {
         qty: Math.max(0, Math.floor(toNum(it.qty, 0))),
         cylinder: it.cylinder === '1',
       }));
+      // 2D görünümler elle taşımaları da yansıtsın diye `placed`ten (override'lı
+      // konumlar) türetiliyor, ham `result.blocks`tan değil.
+      const reportBlocks = placed.map((p) => ({
+        x: p.x, y: p.y, z: p.z,
+        l: p.block.length,
+        w: p.block.ny * p.block.bw,
+        h: p.block.nz * p.block.bh,
+        color: colorFor(p.block.item.id),
+      }));
       const blob = await buildConsolidationPdf(
-        equipment, result, reportItems, snapshot, snapshotError,
+        equipment, result, reportItems, snapshot, snapshotError, reportBlocks,
       );
       const outcome = await shareOrDownloadPdf(blob, `inspecter-${equipment.id}.pdf`);
       const base = outcome === 'shared' ? 'Paylaşıldı.' : 'PDF indirildi.';

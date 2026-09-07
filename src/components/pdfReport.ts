@@ -44,6 +44,71 @@ interface ReportItem {
   cylinder: boolean;
 }
 
+/** Yerleşmiş bir blok — 2D görünümler için, tümü mm. */
+export interface ReportBlock {
+  /** uzunluk ekseni başlangıcı */
+  x: number;
+  /** yükseklik ekseni başlangıcı (tabandan) */
+  y: number;
+  /** genişlik ekseni ofseti */
+  z: number;
+  /** kapladığı uzunluk */
+  l: number;
+  /** kapladığı genişlik */
+  w: number;
+  /** kapladığı yükseklik */
+  h: number;
+  color: string;
+}
+
+function hexToRgb(hex: string): [number, number, number] {
+  const s = hex.replace('#', '');
+  return [
+    parseInt(s.slice(0, 2), 16),
+    parseInt(s.slice(2, 4), 16),
+    parseInt(s.slice(4, 6), 16),
+  ];
+}
+
+/**
+ * Ortografik yükseklik görünümü (elevation) çizer — 3D ekran görüntüsünün
+ * aksine bu **veriden** üretilir: yakalama riski yok, baskıda vektör keskinliği
+ * korunur ve ölçüler birebir doğrudur.
+ *
+ * `a` yatay eksen, `b` dikey eksen (yükseklik). Yükseklik yukarı doğru
+ * büyüdüğü için PDF'in yukarıdan-aşağı y ekseni ters çevrilir.
+ */
+function drawElevation(
+  doc: jsPDF,
+  x0: number,
+  y0: number,
+  drawW: number,
+  drawH: number,
+  spanA: number,
+  spanB: number,
+  boxes: Array<{ a: number; b: number; da: number; db: number; color: string }>,
+) {
+  const sa = drawW / spanA;
+  const sb = drawH / spanB;
+
+  // ekipman kesiti
+  doc.setFillColor(252, 252, 251);
+  doc.setDrawColor(...C_RULE);
+  doc.setLineWidth(0.4);
+  doc.rect(x0, y0, drawW, drawH, 'FD');
+
+  for (const bx of boxes) {
+    const px = x0 + bx.a * sa;
+    const pw = Math.max(0.4, bx.da * sa);
+    const ph = Math.max(0.4, bx.db * sb);
+    const py = y0 + drawH - (bx.b + bx.db) * sb;
+    doc.setFillColor(...hexToRgb(bx.color));
+    doc.setDrawColor(40, 44, 42);
+    doc.setLineWidth(0.15);
+    doc.rect(px, py, pw, ph, 'FD');
+  }
+}
+
 /**
  * Marka amblemini çizer — uygulama ikonuyla (icon.svg, 32 birimlik tuval) aynı
  * geometri, `size` mm'ye ölçeklenmiş: yuvarlak kare + oluklu konteyner silueti.
@@ -68,6 +133,8 @@ export async function buildConsolidationPdf(
   snapshot: string | null,
   /** Görüntü alınamadıysa sebebi — PDF'te boş bırakmak yerine yazılır. */
   snapshotError: string | null = null,
+  /** 2D yandan/önden görünümler için yerleşmiş bloklar. */
+  blocks: ReportBlock[] = [],
 ): Promise<Blob> {
   // Font ~76 KB; yalnızca PDF üretilirken yüklensin diye dinamik import.
   const { ARCHIVO_REGULAR_B64, ARCHIVO_BOLD_B64 } = await import('./pdfFont');
@@ -213,6 +280,49 @@ export async function buildConsolidationPdf(
     doc.text(lines, marginX, y);
     doc.setTextColor(...C_INK);
     y += lines.length * 5 + 4;
+  }
+
+  // ---- 2D ortografik görünümler ----
+  // Ekran görüntüsünün aksine bunlar veriden çizilir: ölçüler birebir, baskıda
+  // vektör keskinliğinde ve yakalama başarısız olsa bile her zaman çıkarlar.
+  if (blocks.length > 0) {
+    const SIDE_H = 30;  // mm
+    const FRONT_H = 34; // mm
+    const gap = 8;
+    const frontW = (FRONT_H * equipment.W) / equipment.H;
+    const labelH = 5;
+    const needed = labelH + Math.max(SIDE_H, FRONT_H) + 8;
+    if (y + needed > pageH - 18) { doc.addPage(); y = 20; }
+
+    const sideW = contentW - frontW - gap;
+
+    doc.setFont(FONT, 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...C_INK_2);
+    doc.text('Yandan görünüm (uzunluk × yükseklik)', marginX, y);
+    doc.text('Önden görünüm', marginX + sideW + gap, y);
+    y += 3;
+
+    drawElevation(
+      doc, marginX, y, sideW, SIDE_H, equipment.L, equipment.H,
+      blocks.map((b) => ({ a: b.x, b: b.y, da: b.l, db: b.h, color: b.color })),
+    );
+    drawElevation(
+      doc, marginX + sideW + gap, y, frontW, FRONT_H, equipment.W, equipment.H,
+      blocks.map((b) => ({ a: b.z, b: b.y, da: b.w, db: b.h, color: b.color })),
+    );
+
+    y += Math.max(SIDE_H, FRONT_H) + 3.5;
+
+    doc.setFont(FONT, 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(...C_INK_2);
+    doc.text(
+      `Kasa ${fmt(equipment.L / 10)} × ${fmt(equipment.W / 10)} × ${fmt(equipment.H / 10)} cm · ölçekli`,
+      marginX, y,
+    );
+    y += 6;
+    doc.setTextColor(...C_INK);
   }
 
   // ---- kalem tablosu ----

@@ -51,74 +51,25 @@ const ConsolidationScene3D = forwardRef<ConsolidationScene3DHandle, {
   onResetBlock: (key: string) => void;
 }>(function ConsolidationScene3D({ equipment, placed, colorFor, onMoveBlock, onResetBlock }, ref) {
   /**
-   * Sahne görüntüsü yakalama.
+   * Sahne görüntüsü yakalama — KASITLI OLARAK SADE.
    *
-   * İki tuzak var, ikisi de mobilde ısırıyor:
+   * r3f zaten her karede render ediyor ve `preserveDrawingBuffer: true` ile
+   * son kare tuvalde duruyor; tek yapılması gereken onu okumak.
    *
-   * 1. **Otomatik render döngüsüne güvenilmez** — arka plandaki sekmede veya
-   *    mount sonrası ilk anlarda rAF çalışmayabilir, buffer boş kalır. Bu
-   *    yüzden yakalarken sahneyi elle bir kez render ediyoruz.
-   * 2. **WebGL canvas'ta `toDataURL` native WebView'da boş dönebiliyor**
-   *    (Android WebView'da GL yüzeyi SurfaceTexture ile destekleniyor,
-   *    `preserveDrawingBuffer` her zaman beklendiği gibi davranmıyor). Bunun
-   *    yerine `readPixels` ile piksel geri okuması yapıp 2D canvas'a
-   *    aktarıyoruz — WebView'ın `toDataURL` uygulamasına bağımlı değil.
-   *
-   * WebGL'in piksel kökeni SOL-ALT, canvas'ınki SOL-ÜST: satırlar ters çevrilir.
-   * Sahne saydam render edildiği için sonuç beyaz zemine bindirilir, aksi
-   * halde PDF'te saydam (boş görünen) bir kare oluşur.
+   * ⚠️ Buraya "sağlamlaştırma" eklemeye çalışma. Daha önce iki kez denendi ve
+   * ikisi de çalışan yakalamayı BOZDU (kullanıcı telefonda doğruladı):
+   *   1. Yakalamadan önce elle `renderer.render(scene, camera)` çağırmak —
+   *      r3f'in kendi döngüsünün dışından müdahale.
+   *   2. `readPixels` + 2D canvas'a aktarma.
+   * Sade `toDataURL` cihazda çalışıyor; dokunma.
    */
   const threeStateRef = useRef<RootState | null>(null);
   useImperativeHandle(ref, () => ({
     captureImage: () => {
-      const state = threeStateRef.current;
-      if (!state) return { error: 'Sahne henüz hazır değil.' };
-
-      const renderer = state.gl;
-      const canvas = renderer.domElement;
-      const w = canvas.width;
-      const h = canvas.height;
-      if (!w || !h) return { error: 'Sahne boyutu okunamadı.' };
-
+      const canvas = threeStateRef.current?.gl.domElement;
+      if (!canvas) return { error: 'Sahne henüz hazır değil.' };
       try {
-        renderer.setRenderTarget(null);
-        renderer.render(state.scene, state.camera);
-
-        const ctx = renderer.getContext();
-        if (ctx.isContextLost?.()) return { error: '3D bağlamı kaybedilmiş.' };
-
-        const pixels = new Uint8Array(w * h * 4);
-        ctx.readPixels(0, 0, w, h, ctx.RGBA, ctx.UNSIGNED_BYTE, pixels);
-
-        // Tamamen saydamsa hiçbir şey çizilmemiş demektir — boş kare basma.
-        let painted = false;
-        for (let i = 3; i < pixels.length; i += 4) {
-          if (pixels[i] !== 0) { painted = true; break; }
-        }
-        if (!painted) return { error: 'Sahne henüz çizilmemiş.' };
-
-        const flipped = document.createElement('canvas');
-        flipped.width = w;
-        flipped.height = h;
-        const fctx = flipped.getContext('2d');
-        if (!fctx) return { error: '2D bağlamı açılamadı.' };
-        const img = fctx.createImageData(w, h);
-        const row = w * 4;
-        for (let y = 0; y < h; y++) {
-          img.data.set(pixels.subarray((h - 1 - y) * row, (h - y) * row), y * row);
-        }
-        fctx.putImageData(img, 0, 0);
-
-        const out = document.createElement('canvas');
-        out.width = w;
-        out.height = h;
-        const octx = out.getContext('2d');
-        if (!octx) return { error: '2D bağlamı açılamadı.' };
-        octx.fillStyle = '#ffffff';
-        octx.fillRect(0, 0, w, h);
-        octx.drawImage(flipped, 0, 0);
-
-        return { url: out.toDataURL('image/png') };
+        return { url: canvas.toDataURL('image/png') };
       } catch (e) {
         return { error: `Görüntü alınamadı (${(e as Error).message ?? 'bilinmeyen'}).` };
       }
