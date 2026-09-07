@@ -226,16 +226,22 @@ export default function ConsolidationPlanner() {
     setPdfBusy(true);
     setPdfNote(null);
     try {
-      const snapshot = sceneRef.current?.captureImage() ?? null;
+      const shot = sceneRef.current?.captureImage() ?? { error: 'Sahne bulunamadı.' };
+      const snapshot = 'url' in shot ? shot.url : null;
+      const snapshotError = 'error' in shot ? shot.error : null;
       const reportItems = items.map((it) => ({
         label: it.label.trim() || 'Kalem',
         l: toNum(it.l), w: toNum(it.w), h: toNum(it.h), kg: toNum(it.kg, 0),
         qty: Math.max(0, Math.floor(toNum(it.qty, 0))),
         cylinder: it.cylinder === '1',
       }));
-      const blob = await buildConsolidationPdf(equipment, result, reportItems, snapshot);
+      const blob = await buildConsolidationPdf(
+        equipment, result, reportItems, snapshot, snapshotError,
+      );
       const outcome = await shareOrDownloadPdf(blob, `inspecter-${equipment.id}.pdf`);
-      setPdfNote(outcome === 'shared' ? 'Paylaşıldı.' : 'PDF indirildi.');
+      const base = outcome === 'shared' ? 'Paylaşıldı.' : 'PDF indirildi.';
+      // 3D görüntü alınamadıysa sessiz kalma — PDF eksik çıktı, kullanıcı bilsin.
+      setPdfNote(snapshotError ? `${base} Ancak 3D görünüm eklenemedi: ${snapshotError}` : base);
     } catch {
       setPdfNote('PDF oluşturulamadı — tekrar dene.');
     } finally {

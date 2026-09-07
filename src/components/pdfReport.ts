@@ -66,6 +66,8 @@ export async function buildConsolidationPdf(
   result: ConsolidationResult,
   items: ReportItem[],
   snapshot: string | null,
+  /** Görüntü alınamadıysa sebebi — PDF'te boş bırakmak yerine yazılır. */
+  snapshotError: string | null = null,
 ): Promise<Blob> {
   // Font ~76 KB; yalnızca PDF üretilirken yüklensin diye dinamik import.
   const { ARCHIVO_REGULAR_B64, ARCHIVO_BOLD_B64 } = await import('./pdfFont');
@@ -246,7 +248,8 @@ export async function buildConsolidationPdf(
     doc.setFont(FONT, 'normal');
     doc.setFontSize(9);
     doc.setTextColor(...C_INK_2);
-    doc.text('Görünüm alınamadı — sahneyi bir kez döndürüp tekrar dene.', marginX, y);
+    const reason = snapshotError ?? 'Görüntü alınamadı.';
+    doc.text(`${reason} Sahneyi bir kez döndürüp tekrar dene.`, marginX, y);
   }
 
   // ---- altbilgi (her sayfaya) ----

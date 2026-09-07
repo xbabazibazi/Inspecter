@@ -35,8 +35,12 @@ export interface PlacedEntry {
 }
 
 export interface ConsolidationScene3DHandle {
-  /** Sahnenin o anki karesini PNG data URL olarak döner (yazdırma/rapor için). */
-  captureImage: () => string | null;
+  /**
+   * Sahnenin o anki karesini PNG data URL olarak döner (rapor için).
+   * Başarısızlıkta `null` yerine sebebini döner ki kullanıcıya anlamlı bir
+   * mesaj gösterebilelim — sessizce boş görüntü basmaktan iyidir.
+   */
+  captureImage: () => { url: string } | { error: string };
 }
 
 const ConsolidationScene3D = forwardRef<ConsolidationScene3DHandle, {
@@ -46,17 +50,78 @@ const ConsolidationScene3D = forwardRef<ConsolidationScene3DHandle, {
   onMoveBlock: (key: string, x: number, y: number, z: number) => void;
   onResetBlock: (key: string) => void;
 }>(function ConsolidationScene3D({ equipment, placed, colorFor, onMoveBlock, onResetBlock }, ref) {
-  // Otomatik render döngüsünün buffer'da o an ne bıraktığına güvenmek yerine
-  // (özellikle mount sonrası ilk anlarda ya da GL durumu belirsizken kırılgan),
-  // yakalarken sahneyi/kamerayı elle bir kez render edip HEMEN ardından okuyoruz —
-  // react-three-fiber'ın kendi önerdiği ekran görüntüsü tekniği.
+  /**
+   * Sahne görüntüsü yakalama.
+   *
+   * İki tuzak var, ikisi de mobilde ısırıyor:
+   *
+   * 1. **Otomatik render döngüsüne güvenilmez** — arka plandaki sekmede veya
+   *    mount sonrası ilk anlarda rAF çalışmayabilir, buffer boş kalır. Bu
+   *    yüzden yakalarken sahneyi elle bir kez render ediyoruz.
+   * 2. **WebGL canvas'ta `toDataURL` native WebView'da boş dönebiliyor**
+   *    (Android WebView'da GL yüzeyi SurfaceTexture ile destekleniyor,
+   *    `preserveDrawingBuffer` her zaman beklendiği gibi davranmıyor). Bunun
+   *    yerine `readPixels` ile piksel geri okuması yapıp 2D canvas'a
+   *    aktarıyoruz — WebView'ın `toDataURL` uygulamasına bağımlı değil.
+   *
+   * WebGL'in piksel kökeni SOL-ALT, canvas'ınki SOL-ÜST: satırlar ters çevrilir.
+   * Sahne saydam render edildiği için sonuç beyaz zemine bindirilir, aksi
+   * halde PDF'te saydam (boş görünen) bir kare oluşur.
+   */
   const threeStateRef = useRef<RootState | null>(null);
   useImperativeHandle(ref, () => ({
     captureImage: () => {
       const state = threeStateRef.current;
-      if (!state) return null;
-      state.gl.render(state.scene, state.camera);
-      return state.gl.domElement.toDataURL('image/png');
+      if (!state) return { error: 'Sahne henüz hazır değil.' };
+
+      const renderer = state.gl;
+      const canvas = renderer.domElement;
+      const w = canvas.width;
+      const h = canvas.height;
+      if (!w || !h) return { error: 'Sahne boyutu okunamadı.' };
+
+      try {
+        renderer.setRenderTarget(null);
+        renderer.render(state.scene, state.camera);
+
+        const ctx = renderer.getContext();
+        if (ctx.isContextLost?.()) return { error: '3D bağlamı kaybedilmiş.' };
+
+        const pixels = new Uint8Array(w * h * 4);
+        ctx.readPixels(0, 0, w, h, ctx.RGBA, ctx.UNSIGNED_BYTE, pixels);
+
+        // Tamamen saydamsa hiçbir şey çizilmemiş demektir — boş kare basma.
+        let painted = false;
+        for (let i = 3; i < pixels.length; i += 4) {
+          if (pixels[i] !== 0) { painted = true; break; }
+        }
+        if (!painted) return { error: 'Sahne henüz çizilmemiş.' };
+
+        const flipped = document.createElement('canvas');
+        flipped.width = w;
+        flipped.height = h;
+        const fctx = flipped.getContext('2d');
+        if (!fctx) return { error: '2D bağlamı açılamadı.' };
+        const img = fctx.createImageData(w, h);
+        const row = w * 4;
+        for (let y = 0; y < h; y++) {
+          img.data.set(pixels.subarray((h - 1 - y) * row, (h - y) * row), y * row);
+        }
+        fctx.putImageData(img, 0, 0);
+
+        const out = document.createElement('canvas');
+        out.width = w;
+        out.height = h;
+        const octx = out.getContext('2d');
+        if (!octx) return { error: '2D bağlamı açılamadı.' };
+        octx.fillStyle = '#ffffff';
+        octx.fillRect(0, 0, w, h);
+        octx.drawImage(flipped, 0, 0);
+
+        return { url: out.toDataURL('image/png') };
+      } catch (e) {
+        return { error: `Görüntü alınamadı (${(e as Error).message ?? 'bilinmeyen'}).` };
+      }
     },
   }), []);
 
