@@ -299,7 +299,10 @@ export default function ConsolidationPlanner() {
           />
         </div>
 
-        <h3 style={{ marginTop: 20 }}>Kalemler</h3>
+        {/* "Kalem" doğru terim (bir firmanın birden fazla kalemi olabilir) ama
+            kullanıcı "firma ekle" diye aradı ve bulamadı — başlıkta ve düğmede
+            iki terimi birlikte veriyoruz. */}
+        <h3 style={{ marginTop: 20 }}>Kalemler — her satır bir firmanın yükü</h3>
         <div className="itemlist">
           {items.map((it, i) => (
             <ItemRow
@@ -322,7 +325,7 @@ export default function ConsolidationPlanner() {
         </div>
         <div className="itemtoolbar" style={{ marginTop: 4 }}>
           <button type="button" className="addbtn" onClick={add}>
-            + Kalem ekle
+            + Firma / kalem ekle
           </button>
           <button type="button" className="rowbtn" onClick={() => fileInputRef.current?.click()}>
             Excel/CSV içe aktar
