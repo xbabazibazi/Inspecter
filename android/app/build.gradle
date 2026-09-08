@@ -1,5 +1,16 @@
 apply plugin: 'com.android.application'
 
+// Yayın imzası. Parolalar ASLA burada durmaz — gitignore'lu keystore.properties'ten
+// okunur. Dosya yoksa (ör. temiz bir klonda) release build imzasız üretilir ve
+// yalnızca `bundleRelease`/`assembleRelease` etkilenir; debug build çalışmaya devam eder.
+// Kurulum için bkz. README "Play Store yayını".
+def keystorePropertiesFile = rootProject.file("keystore.properties")
+def keystoreProperties = new Properties()
+def hasSigning = keystorePropertiesFile.exists()
+if (hasSigning) {
+    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+}
+
 android {
     namespace = "com.quon.inspecter"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,8 +27,21 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (hasSigning) {
+            release {
+                storeFile rootProject.file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            if (hasSigning) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

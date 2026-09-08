@@ -67,6 +67,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <a href="https://www.bic-code.org/" target="_blank" rel="noreferrer">
               bic-code.org
             </a>
+            <br />
+            <a href="/gizlilik">Gizlilik politikası</a>
           </footer>
         </div>
       </body>

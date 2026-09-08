@@ -87,6 +87,59 @@ Sahip kodu listesi eksiktir; tam ve güncel kayıt [BIC](https://www.bic-code.or
   tarayıcılarda erişim fırlatabilir; araçlar o durumda da çalışmalı.
 - **Hesaplar `useMemo` ile türetilir**, ayrı state tutulmaz — girdi ile çıktı asla ayrışmaz.
 
+## Mobil ve Play Store yayını
+
+Uygulama Capacitor ile Android/iOS'a sarmalanır; web çıktısı (`out/`) doğrudan
+paketlenir. Mağaza metinleri, form cevapları ve kontrol listesi:
+[`store/PLAY-STORE.md`](store/PLAY-STORE.md).
+
+### Test paketi (LAN üzerinden telefona)
+
+```bash
+npm run build && npx cap sync android
+cd android && JAVA_HOME="C:\AndroidBuildTools\jdk21\jdk-21.0.12.1+1" ./gradlew assembleDebug
+cd .. && bash apk-yayinla.sh          # sürümlü ad + indirme sayfası üretir
+```
+
+Dosya adının her yayında değişmesi **kasıtlıdır**: sabit adda telefon tarayıcısı
+`304 Not Modified` alıp önbellekteki eski paketi kuruyor ve "düzeltme çalışmadı"
+sanılıyor.
+
+### Yayın imzası (bir kereye mahsus)
+
+Release derlemeleri `android/keystore.properties` dosyasından imzalanır; bu dosya
+ve keystore **gitignore'ludur, asla commit edilmez**. Keystore yoksa release
+derlemesi imzasız üretilir (debug derlemesi etkilenmez).
+
+```bash
+cd android
+keytool -genkeypair -v -keystore inspecter-upload.keystore \
+  -alias inspecter-upload -keyalg RSA -keysize 2048 -validity 10000
+```
+
+Ardından `android/keystore.properties`:
+
+```properties
+storeFile=inspecter-upload.keystore
+storePassword=<parola>
+keyAlias=inspecter-upload
+keyPassword=<parola>
+```
+
+> ⚠️ **Bu anahtar kaybolursa uygulama Play'de bir daha güncellenemez.** Parolayı
+> Vaultwarden'a, keystore dosyasını da ayrı bir yedeğe koy.
+
+### Mağaza paketi (AAB)
+
+Play yeni uygulamalarda APK değil **AAB** ister:
+
+```bash
+cd android && ./gradlew bundleRelease
+# çıktı: android/app/build/outputs/bundle/release/app-release.aab
+```
+
+Her yüklemede `android/app/build.gradle` içindeki `versionCode` artırılmalıdır.
+
 ## Sırada ne var
 
 Faz 1'e geçerken bu repo'ya eklenecekler: Postgres + RLS ile çok kiracılık, taraf/ürün kataloğu,
