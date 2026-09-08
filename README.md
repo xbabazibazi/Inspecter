@@ -111,19 +111,19 @@ Release derlemeleri `android/keystore.properties` dosyasından imzalanır; bu do
 ve keystore **gitignore'ludur, asla commit edilmez**. Keystore yoksa release
 derlemesi imzasız üretilir (debug derlemesi etkilenmez).
 
-```bash
+PowerShell'de (tek satır — PowerShell'de satır devamı `\` değil, backtick):
+
+```powershell
 cd android
-keytool -genkeypair -v -keystore inspecter-upload.keystore \
-  -alias inspecter-upload -keyalg RSA -keysize 2048 -validity 10000
+keytool -genkeypair -v -keystore inspecter-upload.keystore -alias inspecter-upload -keyalg RSA -keysize 2048 -validity 10000
 ```
 
-Ardından `android/keystore.properties`:
+Anahtar parolası ayrıca sorulursa Enter'a bas — keystore parolasıyla aynı olmalı,
+`keystore.properties` ikisini de aynı değerle veriyor. Dosyayı oluştur:
 
-```properties
-storeFile=inspecter-upload.keystore
-storePassword=<parola>
-keyAlias=inspecter-upload
-keyPassword=<parola>
+```powershell
+$pw = Read-Host "Keystore parolasi"
+"storeFile=inspecter-upload.keystore`nstorePassword=$pw`nkeyAlias=inspecter-upload`nkeyPassword=$pw" | Set-Content keystore.properties -Encoding ascii
 ```
 
 > ⚠️ **Bu anahtar kaybolursa uygulama Play'de bir daha güncellenemez.** Parolayı
