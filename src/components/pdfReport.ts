@@ -33,6 +33,10 @@ const C_INK: [number, number, number] = [19, 26, 24];
 const C_INK_2: [number, number, number] = [90, 99, 96];
 const C_RULE: [number, number, number] = [178, 186, 181];
 const C_STAMP: [number, number, number] = [158, 59, 46];
+/** İkon düzlemleri — src/app/icon.svg ile aynı. */
+const C_ICON_TOP: [number, number, number] = [244, 248, 246];
+const C_ICON_LEFT: [number, number, number] = [191, 217, 211];
+const C_ICON_RIGHT: [number, number, number] = [232, 98, 44];
 
 interface ReportItem {
   label: string;
@@ -115,15 +119,26 @@ function drawElevation(
  */
 function drawLogoMark(doc: jsPDF, x: number, y: number, size: number) {
   const k = size / 32; // icon.svg 32x32 tuvalinden mm'ye
+  const P = (px: number, py: number): [number, number] => [x + px * k, y + py * k];
+
+  /** Dört köşeli düzlemi dolgu olarak çizer (jsPDF `lines` göreli delta ister). */
+  const quad = (pts: Array<[number, number]>, fill: [number, number, number]) => {
+    const [p0, ...rest] = pts;
+    const deltas = rest.map((p, i) => {
+      const prev = i === 0 ? p0 : rest[i - 1];
+      return [p[0] - prev[0], p[1] - prev[1]];
+    });
+    doc.setFillColor(...fill);
+    doc.lines(deltas, p0[0], p0[1], [1, 1], 'F', true);
+  };
+
   doc.setFillColor(...C_ACCENT);
   doc.roundedRect(x, y, size, size, 5 * k, 5 * k, 'F');
 
-  doc.setDrawColor(...C_ACCENT_SOFT);
-  doc.setLineWidth(1.8 * k);
-  doc.roundedRect(x + 6 * k, y + 9 * k, 20 * k, 14 * k, 1 * k, 1 * k, 'S');
-  for (const gx of [10.5, 15, 19.5]) {
-    doc.line(x + gx * k, y + 9 * k, x + gx * k, y + 23 * k);
-  }
+  // İzometrik konteyner — ikonla aynı üç düzlem.
+  quad([P(4.94, 11.18), P(16, 5.65), P(27.07, 11.18), P(16, 16.71)], C_ICON_TOP);
+  quad([P(4.94, 11.18), P(16, 16.71), P(16, 26.31), P(4.94, 20.77)], C_ICON_LEFT);
+  quad([P(16, 16.71), P(27.07, 11.18), P(27.07, 20.77), P(16, 26.31)], C_ICON_RIGHT);
 }
 
 export async function buildConsolidationPdf(

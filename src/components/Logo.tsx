@@ -21,11 +21,20 @@ export default function Logo({ className }: { className?: string }) {
       role="img"
       aria-label="Inspecter"
     >
-      {/* amblem */}
+      {/* amblem — src/app/icon.svg ile aynı geometri, 44px rozete ölçeklenmiş */}
       <rect x="2" y="2" width="44" height="44" rx="6.9" fill="#094A41" />
-      <g fill="none" stroke="#DCEAE6" strokeWidth="2.48">
-        <rect x="10.25" y="14.4" width="27.5" height="19.25" rx="1.4" />
-        <path d="M16.44 14.4v19.25M22.63 14.4v19.25M28.81 14.4v19.25" />
+      <g strokeLinejoin="round">
+        <path d="M8.79 17.37 24 9.77 39.22 17.37 24 24.98Z" fill="#F4F8F6" />
+        <path d="M8.79 17.37 24 24.98 24 38.18 8.79 30.56Z" fill="#BFD9D3" />
+        <path d="M24 24.98 39.22 17.37 39.22 30.56 24 38.18Z" fill="#E8622C" />
+      </g>
+      <g strokeWidth="0.81" strokeLinecap="round" opacity="0.45" fill="none">
+        <g stroke="#094A41">
+          <path d="M12.60 19.27V32.47M16.40 21.18V34.38M20.21 23.08V36.28" />
+        </g>
+        <g stroke="#7A2E10">
+          <path d="M27.81 23.08V36.28M31.62 21.18V34.38M35.41 19.27V32.47" />
+        </g>
       </g>
 
       {/* kelime markası */}

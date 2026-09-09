@@ -1,7 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
   <rect width="32" height="32" rx="5" fill="#094A41"/>
-  <g fill="none" stroke="#DCEAE6" stroke-width="1.8">
-    <rect x="6" y="9" width="20" height="14" rx="1"/>
-    <path d="M10.5 9v14M15 9v14M19.5 9v14"/>
+  <!-- İzometrik konteyner: üç düzlem farklı tonda, böylece 48px'te bile siluet
+       ve derinlik okunuyor. Turuncu yüz, uygulamadaki kargo bloğu rengiyle aynı.
+       Glif karonun ~%69'unu kaplıyor — launcher ikonlarında dolgun durması için. -->
+  <g stroke-linejoin="round">
+    <!-- üst yüz -->
+    <path d="M4.94 11.18 16 5.65 27.07 11.18 16 16.71Z" fill="#F4F8F6"/>
+    <!-- sol yüz -->
+    <path d="M4.94 11.18 16 16.71 16 26.31 4.94 20.77Z" fill="#BFD9D3"/>
+    <!-- sağ yüz (kargo vurgusu) -->
+    <path d="M16 16.71 27.07 11.18 27.07 20.77 16 26.31Z" fill="#E8622C"/>
+  </g>
+  <!-- oluk çizgileri: konteyner olduğunu belli eden doku -->
+  <g stroke-width="0.59" stroke-linecap="round" opacity="0.45" fill="none">
+    <g stroke="#094A41">
+      <path d="M7.71 12.56V22.16M10.47 13.95V23.55M13.24 15.33V24.93"/>
+    </g>
+    <g stroke="#7A2E10">
+      <path d="M18.77 15.33V24.93M21.54 13.95V23.55M24.30 12.56V22.16"/>
+    </g>
   </g>
 </svg>
